@@ -2,14 +2,37 @@
 
 require 'net/https'
 require 'JSON'
+require 'csv'
 
 user     = '...'
 email    = '...'
 password = '...'
 
+module Enumerable
+  def flatten_with_path(parent_prefix = nil)
+    res = {}
 
-login_path = "/nsl/services/user/login?app=b31990e7-8583-4251-808f-9dc67b40f5d2&format=json&contentType=plaintext"
-data_path = "http://nikeplus.nike.com/plus/activity/running/#{user}/lifetime/activities?indexStart=0&indexEnd=99999"
+    self.each_with_index do |elem, i|
+      if elem.is_a?(Array)
+        k, v = elem
+      else
+        k, v = i, elem
+      end
+      key = parent_prefix ? "#{parent_prefix}.#{k}" : k # assign key name for result hash
+      if v.is_a? Enumerable
+        res.merge!(v.flatten_with_path(key)) # recursive call to flatten child elements
+      else
+        res[key] = v
+      end
+    end
+
+    res
+  end
+end
+
+login_path = "/nsl/services/user/login?app=\
+b31990e7-8583-4251-808f-9dc67b40f5d2&format=json&contentType=plaintext"
+data_path = "http://nikeplus.nike.com/plus/activity/running/#{user}/lifetime/activities?indexStart=0&indexEnd=9999"
 post_data = "email=#{email}&password=#{password}"
 headers = {"Content-Type" => "application/x-www-form-urlencoded"}
 
@@ -21,7 +44,7 @@ http.verify_mode = OpenSSL::SSL::VERIFY_NONE
 resp, data = http.post(login_path, post_data, headers)
 
 unless JSON.parse(resp.body)['serviceResponse']['header']['success'] == 'true'
-  puts "Could not login. Server returned error(s):"
+  puts "Could not login. Server returned the following error(s):"
   puts "\t" + JSON.parse(resp.body)['serviceResponse']['header']['errorCodes'].collect{|e| e['message']}.join("\n\t")
   exit
 end
@@ -35,4 +58,10 @@ http = Net::HTTP.new(url.host, url.port)
 
 resp, data = http.get(data_path, {'Cookie' => cookies})
 
-puts JSON.parse(resp.body)
+data = JSON.parse(resp.body)
+
+CSV.open("out.csv", "w") do |csv|
+  data['activities'].each do |activity|
+    csv << activity.flatten_with_path.values
+  end
+end
