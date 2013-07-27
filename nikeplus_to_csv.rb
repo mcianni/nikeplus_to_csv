@@ -60,8 +60,13 @@ resp, data = http.get(data_path, {'Cookie' => cookies})
 
 data = JSON.parse(resp.body)
 
-CSV.open("out.csv", "w") do |csv|
-  data['activities'].each do |activity|
-    csv << activity.flatten_with_path.values
+# The data for each activity may vary in order. We grab all keys here and we'll use
+# that as the standard order for outputing to CSV
+flattened_activities = data['activities'].map{ |activity| activity.flatten_with_path }
+keys = flattened_activities.map(&:keys).flatten.uniq
+
+CSV.open("out.csv", "w", { :headers => keys, :write_headers => true }) do |csv|
+  flattened_activities.each do |activity|
+    csv << keys.map{ |key| activity[key] }
   end
 end
