@@ -40,7 +40,7 @@ headers = {"Content-Type" => "application/x-www-form-urlencoded"}
 url = URI("https://secure-nikeplus.nike.com")
 http = Net::HTTP.new(url.host, url.port)
 http.use_ssl = true
-http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+http.verify_mode = OpenSSL::SSL::VERIFY_PEER
 resp, data = http.post(login_path, post_data, headers)
 
 unless JSON.parse(resp.body)['serviceResponse']['header']['success'] == 'true'
@@ -55,6 +55,8 @@ cookies = all_cookies.collect{|c| c.split('; ')[0]}.join('; ') #make sure we set
 #request data
 url = URI(data_path)
 http = Net::HTTP.new(url.host, url.port)
+http.use_ssl = true
+http.verify_mode = OpenSSL::SSL::VERIFY_PEER
 
 resp, data = http.get(data_path, {'Cookie' => cookies})
 
